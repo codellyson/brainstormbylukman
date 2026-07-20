@@ -1,0 +1,57 @@
+name: deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: node build.js
+
+      - name: Check index.html is up to date
+        run: |
+          git diff --exit-code index.html || {
+            echo "::error::index.html is stale — run 'node build.js' and commit the result."
+            exit 1
+          }
+
+      - name: Stage site
+        run: |
+          mkdir _site
+          cp index.html style.css _site/
+          cp -r thoughts _site/
+          rm _site/thoughts/_template.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
