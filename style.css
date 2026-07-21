@@ -54,6 +54,15 @@ h1 a {
   margin: 0 0 0.5rem;
 }
 
+.thought h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.thought h2 a:hover {
+  text-decoration: underline;
+}
+
 .thought h3 {
   font-size: 1rem;
   margin: 2rem 0 0.75rem;

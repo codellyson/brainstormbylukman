@@ -7,25 +7,78 @@ const indexPath = path.join(root, "index.html");
 
 const START = "<!-- thoughts:start -->";
 const END = "<!-- thoughts:end -->";
+const MARKER = "<!-- excerpt -->";
+
+// Anything that belongs only on the full page, never in the landing-page excerpt.
+function stripTail(html) {
+  return html
+    .replace(/<div class="meta">[\s\S]*?<\/div>/g, "")
+    .replace(/<p class="note">[\s\S]*?<\/p>/g, "")
+    .trim();
+}
+
+function hasContent(html) {
+  return stripTail(html).replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
+// Without an explicit marker, fall back to the title, subtitle, and first paragraph.
+function leadingBlocks(inner) {
+  const blocks = inner.match(/<(h2|p)\b[\s\S]*?<\/\1>/g) || [];
+  const kept = [];
+  for (const block of blocks) {
+    kept.push(block);
+    const isHeading = block.startsWith("<h2");
+    const isSubtitle = block.includes('class="subtitle"');
+    if (!isHeading && !isSubtitle) break;
+  }
+  return { body: kept.join("\n\n"), truncated: kept.length < blocks.length };
+}
 
 function readThought(file) {
   const slug = path.basename(file, ".html");
   const html = fs.readFileSync(path.join(thoughtsDir, file), "utf8");
 
-  const article = html.match(/<article class="thought">[\s\S]*?<\/article>/);
+  const article = html.match(/<article class="thought">([\s\S]*?)<\/article>/);
   if (!article) throw new Error(`${file}: no <article class="thought"> block`);
+  const inner = article[1];
 
-  const date = article[0].match(/<time datetime="([^"]+)"/);
-  if (!date) throw new Error(`${file}: no <time datetime="..."> inside the article`);
+  const time = inner.match(/<time datetime="([^"]+)">([^<]*)<\/time>/);
+  if (!time) throw new Error(`${file}: no <time datetime="..."> inside the article`);
 
-  const meta = article[0].match(/<div class="meta">[\s\S]*?<\/div>/);
-  if (!meta) throw new Error(`${file}: no <div class="meta"> inside the article`);
+  const cut = inner.indexOf(MARKER);
+  const { body, truncated } =
+    cut === -1
+      ? leadingBlocks(inner)
+      : { body: stripTail(inner.slice(0, cut)), truncated: hasContent(inner.slice(cut + MARKER.length)) };
 
-  const linked = meta[0]
-    .replace(/\s*<a href="thoughts\/[^"]*"[^>]*>.*?<\/a>/g, "")
-    .replace(/\s*<\/div>$/, `\n    <a href="thoughts/${slug}.html">permalink</a>\n  </div>`);
+  if (!body) throw new Error(`${file}: excerpt is empty — is there content before ${MARKER}?`);
 
-  return { slug, date: date[1], html: article[0].replace(meta[0], linked) };
+  const href = `thoughts/${slug}.html`;
+  const linkedTitle = body.replace(
+    /<h2>([\s\S]*?)<\/h2>/,
+    `<h2><a href="${href}">$1</a></h2>`
+  );
+
+  const indented = linkedTitle
+    .split("\n")
+    .map((line) => (line.trim() ? `  ${line.trim()}` : ""))
+    .join("\n");
+
+  // Always link out, or a short untruncated thought would have no route to its own page.
+  const more = `\n    <a href="${href}">${truncated ? "read more" : "permalink"}</a>`;
+
+  return {
+    slug,
+    date: time[1],
+    html: [
+      '<article class="thought">',
+      indented,
+      '  <div class="meta">',
+      `    <time datetime="${time[1]}">${time[2]}</time>${more}`,
+      "  </div>",
+      "</article>",
+    ].join("\n"),
+  };
 }
 
 const thoughts = fs
