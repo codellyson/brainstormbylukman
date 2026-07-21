@@ -1,0 +1,13 @@
+{{ define "main" }}
+{{ range .Site.RegularPages }}
+<article class="thought">
+  <h2 class="title"><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+  {{ with .Params.subtitle }}<p class="subtitle">{{ . }}</p>{{ end }}
+  {{ .Summary }}
+  <div class="meta">
+    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2, 2006" }}</time>
+    <a href="{{ .RelPermalink }}">{{ if .Truncated }}read more{{ else }}permalink{{ end }}</a>
+  </div>
+</article>
+{{ end }}
+{{ end }}

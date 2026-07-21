@@ -1,0 +1,14 @@
+baseURL = 'https://codellyson.github.io/brainstormbylukman/'
+locale = 'en-us'
+title = 'brainstorm by lukman'
+
+enableRobotsTXT = true
+
+# No tags or categories yet; declaring none keeps Hugo from expecting taxonomy templates.
+[taxonomies]
+
+[markup.goldmark.renderer]
+  unsafe = true
+
+[params]
+  description = 'Thoughts, one per entry.'

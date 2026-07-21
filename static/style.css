@@ -48,21 +48,24 @@ h1 a {
   margin-bottom: 0;
 }
 
-.thought h2 {
+/* h2.title is the entry title from the layout; a bare h2 is a `##` section
+   heading from the markdown body. Both are h2, so the class carries the weight. */
+.thought h2.title {
   font-size: 1.35rem;
   line-height: 1.3;
   margin: 0 0 0.5rem;
 }
 
-.thought h2 a {
+.thought h2.title a {
   color: inherit;
   text-decoration: none;
 }
 
-.thought h2 a:hover {
+.thought h2.title a:hover {
   text-decoration: underline;
 }
 
+.thought h2,
 .thought h3 {
   font-size: 1rem;
   margin: 2rem 0 0.75rem;

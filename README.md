@@ -1,27 +1,38 @@
 # brainstormbylukman
 
-Thoughts, one per entry. Plain HTML — open `index.html` to view, no server needed.
+Thoughts, one per entry. Built with [Hugo](https://gohugo.io).
 
 ## Adding a thought
 
-1. Copy `thoughts/_template.html` to `thoughts/<slug>.html` and fill in the title, text, and date.
-2. Put `<!-- excerpt -->` where the landing page should cut off.
-3. Run `node build.js`.
+```sh
+hugo new content thoughts/some-slug.md
+```
 
-The landing page is regenerated from the `thoughts/` folder, newest first by the `<time datetime>`
-value. Don't edit the thought list in `index.html` by hand — it gets overwritten.
+Fill in the front matter, write in markdown, and put `<!--more-->` where the landing page
+should cut off. Everything above the marker becomes the excerpt; below it stays on the
+thought's own page.
 
-## Excerpts
+Wrap a closing aside in `{{< note >}}…{{< /note >}}` to get the muted, separated styling.
 
-Only the content *above* `<!-- excerpt -->` goes on the landing page, followed by a "read more"
-link. Without the marker, the excerpt falls back to the title, subtitle, and first paragraph.
+## Local preview
 
-Short thoughts can skip the marker entirely — if nothing was cut, the link reads "permalink"
-instead, so every thought is still reachable from the landing page.
+```sh
+hugo server -D
+```
 
-## Files
+Serves at http://localhost:1313 with live reload. `-D` includes drafts.
 
-- `thoughts/<slug>.html` — one page per thought, the source of truth
-- `index.html` — landing page, generated between the `thoughts:start` / `thoughts:end` markers
-- `build.js` — regenerates that list; no dependencies
-- `style.css` — shared by all pages
+## Deploying
+
+Push to `master`. GitHub Actions builds with Hugo and publishes to Pages —
+https://codellyson.github.io/brainstormbylukman/
+
+## Layout
+
+- `content/thoughts/*.md` — the thoughts
+- `layouts/baseof.html` — page shell
+- `layouts/home.html` — landing page, excerpts of every thought, newest first
+- `layouts/page.html` — a single thought
+- `layouts/section.html` — the `/thoughts/` archive listing
+- `layouts/_shortcodes/note.html` — the `{{< note >}}` shortcode
+- `static/style.css` — all the styling

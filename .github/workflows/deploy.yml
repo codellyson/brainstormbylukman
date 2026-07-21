@@ -14,37 +14,32 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  HUGO_VERSION: 0.164.0
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          submodules: recursive
 
-      - run: node build.js
-
-      - name: Check index.html is up to date
+      - name: Install Hugo
         run: |
-          git diff --exit-code index.html || {
-            echo "::error::index.html is stale — run 'node build.js' and commit the result."
-            exit 1
-          }
-
-      - name: Stage site
-        run: |
-          mkdir _site
-          cp index.html style.css _site/
-          cp -r thoughts _site/
-          rm _site/thoughts/_template.html
+          curl -sSL -o hugo.deb \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
+          sudo dpkg -i hugo.deb
 
       - uses: actions/configure-pages@v5
+        id: pages
+
+      - name: Build
+        run: hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: ./public
 
   deploy:
     needs: build

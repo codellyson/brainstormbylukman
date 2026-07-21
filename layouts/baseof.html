@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.Language.Locale | default "en" }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ block "title" . }}{{ .Site.Title }}{{ end }}</title>
+{{ with .Description | default .Site.Params.description }}<meta name="description" content="{{ . }}">{{ end }}
+<link rel="stylesheet" href="{{ "style.css" | relURL }}">
+{{ with .OutputFormats.Get "rss" }}<link rel="alternate" type="application/rss+xml" href="{{ .Permalink }}" title="{{ $.Site.Title }}">{{ end }}
+</head>
+<body>
+
+<h1><a href="{{ .Site.Home.RelPermalink }}">{{ .Site.Title }}</a></h1>
+
+{{ block "main" . }}{{ end }}
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+{{ define "title" }}{{ .Title }} — {{ .Site.Title }}{{ end }}
+
+{{ define "main" }}
+<article class="thought">
+  <h2 class="title">{{ .Title }}</h2>
+  {{ with .Params.subtitle }}<p class="subtitle">{{ . }}</p>{{ end }}
+  {{ .Content }}
+  <div class="meta">
+    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2, 2006" }}</time>
+  </div>
+</article>
+
+<a class="back" href="{{ .Site.Home.RelPermalink }}">← all thoughts</a>
+{{ end }}
