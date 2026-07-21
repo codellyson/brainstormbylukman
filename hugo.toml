@@ -1,6 +1,6 @@
 baseURL = 'https://thoughtsbylukman.kreativekorna.com/'
 locale = 'en-us'
-title = 'brainstorm by lukman'
+title = 'thoughts by lukman'
 
 enableRobotsTXT = true
 

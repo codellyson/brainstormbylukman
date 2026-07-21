@@ -1,6 +1,7 @@
-# brainstormbylukman
+# thoughts by lukman
 
 Thoughts, one per entry. Built with [Hugo](https://gohugo.io).
+Live at https://thoughtsbylukman.kreativekorna.com
 
 ## Adding a thought
 
@@ -25,7 +26,7 @@ Serves at http://localhost:1313 with live reload. `-D` includes drafts.
 ## Deploying
 
 Push to `master`. GitHub Actions builds with Hugo and publishes to Pages —
-https://codellyson.github.io/brainstormbylukman/
+https://thoughtsbylukman.kreativekorna.com
 
 ## Layout
 
