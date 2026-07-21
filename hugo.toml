@@ -12,3 +12,4 @@ enableRobotsTXT = true
 
 [params]
   description = 'Thoughts, one per entry.'
+  author = 'Lukman Isiaka'

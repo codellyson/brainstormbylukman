@@ -1,6 +1,7 @@
 +++
 title = 'Attack on Titan Is a Propaganda Textbook, and Nobody Warned Us'
 subtitle = 'Anime, brainwashed children, and why the scariest lies feel like common sense.'
+description = 'How Attack on Titan dramatises dehumanisation, historical revision, manufactured consent, and fear — and why every technique has a documented real-world twin.'
 date = 2026-07-20
 aliases = ['/thoughts/attack-on-titan-propaganda.html']
 +++
