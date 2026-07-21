@@ -48,6 +48,32 @@ h1 a {
   margin-bottom: 0;
 }
 
+.thought h2 {
+  font-size: 1.35rem;
+  line-height: 1.3;
+  margin: 0 0 0.5rem;
+}
+
+.thought h3 {
+  font-size: 1rem;
+  margin: 2rem 0 0.75rem;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 1.5rem !important;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
 .meta {
   margin-top: 0.75rem;
   font-size: 0.8rem;
