@@ -1,0 +1,244 @@
+name: manage thought from issue
+
+on:
+  issues:
+    types: [opened, edited, labeled, reopened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  edit:
+    if: contains(github.event.issue.labels.*.name, 'edit-post') && !contains(github.event.issue.labels.*.name, 'edited-post')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace thought file from JSON payload
+        id: edit_post
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          issue_title = (os.environ.get("ISSUE_TITLE") or "").strip()
+          issue_body = (os.environ.get("ISSUE_BODY") or "").strip()
+          github_output = os.environ["GITHUB_OUTPUT"]
+
+          def fail(message: str):
+            raise SystemExit(message)
+
+          def extract_json_payload(text: str):
+            match = re.search(r"```json\s*(\{[\s\S]*\})\s*```", text, flags=re.IGNORECASE)
+            if not match:
+              fail("Missing JSON payload block. Add one fenced with ```json ... ```.")
+            try:
+              payload = json.loads(match.group(1))
+            except json.JSONDecodeError as exc:
+              fail(f"Invalid JSON payload: {exc}")
+            if not isinstance(payload, dict):
+              fail("JSON payload must be an object.")
+            return payload
+
+          def to_toml_string(raw: str):
+            escaped = raw.replace("\\", "\\\\").replace('"', '\\"')
+            return f'"{escaped}"'
+
+          payload = extract_json_payload(issue_body)
+          slug = str(payload.get("slug") or "").strip()
+          title = str(payload.get("title") or issue_title).strip()
+          subtitle = str(payload.get("subtitle") or "").strip()
+          description = str(payload.get("description") or "").strip()
+          date = str(payload.get("date") or "").strip()
+          content = str(payload.get("content") or "").strip()
+          aliases = payload.get("aliases", [])
+
+          if not slug:
+            fail("Missing `slug` in payload.")
+          if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
+            fail("Invalid slug. Use lowercase letters, numbers, and hyphens only.")
+          if not title:
+            fail("Missing `title` in payload and issue title is empty.")
+          if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            fail("Missing or invalid `date`. Use YYYY-MM-DD.")
+          if not content:
+            fail("Missing `content` in payload.")
+          if aliases is None:
+            aliases = []
+          if not isinstance(aliases, list) or not all(isinstance(item, str) and item.strip() for item in aliases):
+            fail("`aliases` must be an array of non-empty strings.")
+          aliases = [item.strip() for item in aliases]
+
+          file_path = pathlib.Path("content") / "thoughts" / f"{slug}.md"
+          if not file_path.exists():
+            fail(f"{file_path.as_posix()} does not exist.")
+
+          lines = ["+++", f"title = {to_toml_string(title)}"]
+          if subtitle:
+            lines.append(f"subtitle = {to_toml_string(subtitle)}")
+          if description:
+            lines.append(f"description = {to_toml_string(description)}")
+          lines.append(f"date = {date}")
+          if aliases:
+            alias_values = ", ".join(to_toml_string(alias) for alias in aliases)
+            lines.append(f"aliases = [{alias_values}]")
+          lines.extend(["+++", "", content, ""])
+
+          new_text = "\n".join(lines)
+          old_text = file_path.read_text(encoding="utf-8")
+          if new_text == old_text:
+            fail("No changes detected between payload and existing file.")
+
+          file_path.write_text(new_text, encoding="utf-8")
+          with open(github_output, "a", encoding="utf-8") as fh:
+            fh.write(f"slug={slug}\n")
+            fh.write(f"file_path={file_path.as_posix()}\n")
+          PY
+
+      - name: Commit and push edited thought
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.edit_post.outputs.file_path }}"
+          git commit -m "Edit thought from issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
+          git push
+
+      - name: Comment and close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const slug = `${{ steps.edit_post.outputs.slug }}`;
+            const url = `${context.payload.repository.html_url}/blob/master/content/thoughts/${slug}.md`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `Updated: \`${slug}\`\n\nContent file: ${url}\n\nThe deploy workflow will publish this edit automatically.`
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ["edited-post"]
+            });
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              name: "edit-post"
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: "closed",
+              state_reason: "completed"
+            });
+
+  unpublish:
+    if: contains(github.event.issue.labels.*.name, 'unpublish-post') && !contains(github.event.issue.labels.*.name, 'unpublished-post')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve thought file from JSON payload
+        id: remove_post
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+
+          issue_body = (os.environ.get("ISSUE_BODY") or "").strip()
+          github_output = os.environ["GITHUB_OUTPUT"]
+
+          def fail(message: str):
+            raise SystemExit(message)
+
+          def extract_json_payload(text: str):
+            match = re.search(r"```json\s*(\{[\s\S]*\})\s*```", text, flags=re.IGNORECASE)
+            if not match:
+              fail("Missing JSON payload block. Add one fenced with ```json ... ```.")
+            try:
+              payload = json.loads(match.group(1))
+            except json.JSONDecodeError as exc:
+              fail(f"Invalid JSON payload: {exc}")
+            if not isinstance(payload, dict):
+              fail("JSON payload must be an object.")
+            return payload
+
+          payload = extract_json_payload(issue_body)
+          slug = str(payload.get("slug") or "").strip()
+          if not slug:
+            fail("Missing `slug` in payload.")
+          if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
+            fail("Invalid slug. Use lowercase letters, numbers, and hyphens only.")
+
+          file_path = pathlib.Path("content") / "thoughts" / f"{slug}.md"
+          if not file_path.exists():
+            fail(f"{file_path.as_posix()} does not exist.")
+
+          with open(github_output, "a", encoding="utf-8") as fh:
+            fh.write(f"slug={slug}\n")
+            fh.write(f"file_path={file_path.as_posix()}\n")
+          PY
+
+      - name: Commit and push removal
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm "${{ steps.remove_post.outputs.file_path }}"
+          git commit -m "Unpublish thought from issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
+          git push
+
+      - name: Comment and close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const slug = `${{ steps.remove_post.outputs.slug }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `Unpublished: \`${slug}\`\n\nThe source file was removed and deploy will update the live site automatically.`
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ["unpublished-post"]
+            });
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              name: "unpublish-post"
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: "closed",
+              state_reason: "completed"
+            });

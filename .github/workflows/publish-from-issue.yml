@@ -1,0 +1,160 @@
+name: publish from issue
+
+on:
+  issues:
+    types: [opened, edited, labeled, reopened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  publish:
+    if: contains(github.event.issue.labels.*.name, 'publish') && !contains(github.event.issue.labels.*.name, 'published')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create thought file from JSON payload
+        id: create_post
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_CREATED_AT: ${{ github.event.issue.created_at }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import unicodedata
+
+          issue_title = (os.environ.get("ISSUE_TITLE") or "").strip()
+          issue_body = (os.environ.get("ISSUE_BODY") or "").strip()
+          issue_number = os.environ["ISSUE_NUMBER"]
+          issue_created_at = os.environ["ISSUE_CREATED_AT"]
+          github_output = os.environ["GITHUB_OUTPUT"]
+
+          def fail(message: str):
+            raise SystemExit(message)
+
+          def extract_json_payload(text: str):
+            match = re.search(r"```json\s*(\{[\s\S]*\})\s*```", text, flags=re.IGNORECASE)
+            if not match:
+              fail("Missing JSON payload block. Add one fenced with ```json ... ```.")
+            try:
+              payload = json.loads(match.group(1))
+            except json.JSONDecodeError as exc:
+              fail(f"Invalid JSON payload: {exc}")
+            if not isinstance(payload, dict):
+              fail("JSON payload must be an object.")
+            return payload
+
+          def slugify(value: str):
+            normalized = unicodedata.normalize("NFKD", value)
+            ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+            slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_only).strip("-").lower()
+            return slug
+
+          def to_toml_string(raw: str):
+            escaped = raw.replace("\\", "\\\\").replace('"', '\\"')
+            return f'"{escaped}"'
+
+          payload = extract_json_payload(issue_body)
+
+          title = str(payload.get("title") or issue_title).strip()
+          if not title:
+            fail("Missing `title` in payload and issue title is empty.")
+
+          content = str(payload.get("content") or "").strip()
+          if not content:
+            fail("Missing `content` in payload.")
+
+          slug_input = str(payload.get("slug") or "").strip()
+          slug = slug_input or slugify(title) or f"thought-{issue_number}"
+          if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
+            fail("Invalid slug. Use lowercase letters, numbers, and hyphens only.")
+
+          subtitle = str(payload.get("subtitle") or "").strip()
+          description = str(payload.get("description") or "").strip()
+          date = str(payload.get("date") or issue_created_at[:10]).strip()
+          if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+            fail("Invalid `date`. Use YYYY-MM-DD.")
+
+          aliases = payload.get("aliases", [])
+          if aliases is None:
+            aliases = []
+          if not isinstance(aliases, list) or not all(isinstance(item, str) and item.strip() for item in aliases):
+            fail("`aliases` must be an array of non-empty strings.")
+          aliases = [item.strip() for item in aliases]
+
+          content_dir = pathlib.Path("content") / "thoughts"
+          content_dir.mkdir(parents=True, exist_ok=True)
+          file_path = content_dir / f"{slug}.md"
+          if file_path.exists():
+            fail(f"{file_path.as_posix()} already exists. Use a different slug.")
+
+          lines = ["+++", f"title = {to_toml_string(title)}"]
+          if subtitle:
+            lines.append(f"subtitle = {to_toml_string(subtitle)}")
+          if description:
+            lines.append(f"description = {to_toml_string(description)}")
+          lines.append(f"date = {date}")
+          if aliases:
+            alias_values = ", ".join(to_toml_string(alias) for alias in aliases)
+            lines.append(f"aliases = [{alias_values}]")
+          lines.extend(["+++", "", content, ""])
+
+          file_path.write_text("\n".join(lines), encoding="utf-8")
+
+          with open(github_output, "a", encoding="utf-8") as fh:
+            fh.write(f"slug={slug}\n")
+            fh.write(f"file_path={file_path.as_posix()}\n")
+          PY
+
+      - name: Commit and push thought
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.create_post.outputs.file_path }}"
+          git commit -m "Add thought from issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}"
+          git push
+
+      - name: Comment and close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const slug = `${{ steps.create_post.outputs.slug }}`;
+            const url = `${context.payload.repository.html_url}/blob/master/content/thoughts/${slug}.md`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `Published: \`${slug}\`\n\nContent file: ${url}\n\nThe deploy workflow will publish this to the site automatically.`
+            });
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ["published"]
+            });
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              name: "publish"
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: "closed",
+              state_reason: "completed"
+            });

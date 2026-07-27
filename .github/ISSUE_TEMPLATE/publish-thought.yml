@@ -1,0 +1,30 @@
+name: Publish thought
+description: Create and publish a thought post from an issue.
+title: "Thought title"
+labels: ["publish"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste a strict JSON payload in a fenced code block.
+        Required: `title`, `content`
+        Optional: `slug`, `subtitle`, `description`, `date`, `aliases`
+  - type: textarea
+    id: payload
+    attributes:
+      label: Publish payload (JSON)
+      description: Must be valid JSON inside ```json ... ```
+      value: |
+        ```json
+        {
+          "title": "Your thought title",
+          "subtitle": "Optional subtitle",
+          "description": "Optional short SEO description",
+          "slug": "optional-custom-slug",
+          "date": "2026-07-27",
+          "aliases": ["/thoughts/your-slug.html"],
+          "content": "Write your markdown content here.\n\nUse \\n for line breaks."
+        }
+        ```
+    validations:
+      required: true

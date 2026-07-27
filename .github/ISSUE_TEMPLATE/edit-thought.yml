@@ -1,0 +1,32 @@
+name: Edit thought
+description: Edit an existing published thought.
+title: "Edit thought: your-slug"
+labels: ["edit-post"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste a strict JSON payload in a fenced code block.
+        Required: `slug`, `title`, `date`, `content`
+        Optional: `subtitle`, `description`, `aliases`
+
+        This **replaces** the full post file, so include the complete content.
+        ```json
+        {
+          "slug": "existing-thought-slug",
+          "title": "Updated title",
+          "subtitle": "Optional new subtitle",
+          "description": "Optional new description",
+          "date": "2026-07-27",
+          "aliases": ["/thoughts/existing-thought-slug.html"],
+          "content": "Full updated markdown content.\n\nUse \\n for line breaks."
+        }
+        ```
+  - type: textarea
+    id: payload
+    attributes:
+      label: Edit payload (JSON)
+      description: Must be valid JSON inside ```json ... ```
+      placeholder: Paste JSON payload...
+    validations:
+      required: true

@@ -1,0 +1,28 @@
+name: Unpublish thought
+description: Remove a published thought from the site.
+title: "Unpublish thought: your-slug"
+labels: ["unpublish-post"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Paste a strict JSON payload in a fenced code block:
+
+        ```json
+        {
+          "slug": "attack-on-titan-propaganda"
+        }
+        ```
+  - type: textarea
+    id: payload
+    attributes:
+      label: Unpublish payload (JSON)
+      description: Must be valid JSON inside ```json ... ```
+      value: |
+        ```json
+        {
+          "slug": "attack-on-titan-propaganda"
+        }
+        ```
+    validations:
+      required: true

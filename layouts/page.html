@@ -1,7 +1,31 @@
 {{ define "title" }}{{ .Title }} — {{ .Site.Title }}{{ end }}
 
 {{ define "main" }}
-<article class="thought">
+<button
+  id="reader-controls-toggle"
+  class="reader-controls-toggle"
+  type="button"
+  aria-controls="reader-controls-panel"
+  aria-expanded="false"
+  hidden
+>
+  Aa
+</button>
+
+<section id="reader-controls-panel" class="reader-controls" aria-label="Reading controls">
+  <p class="reader-controls-title">Reading controls</p>
+
+  <label for="reading-size">Text size</label>
+  <input id="reading-size" type="range" min="0.95" max="1.35" step="0.01" value="1.08">
+
+  <label for="reading-height">Line height</label>
+  <input id="reading-height" type="range" min="1.5" max="2.1" step="0.01" value="1.82">
+
+  <label for="reading-width">Line width</label>
+  <input id="reading-width" type="range" min="56" max="78" step="1" value="68">
+</section>
+
+<article class="thought thought-reading">
   <h2 class="title">{{ .Title }}</h2>
   {{ with .Params.subtitle }}<p class="subtitle">{{ . }}</p>{{ end }}
   {{ .Content }}
@@ -11,4 +35,65 @@
 </article>
 
 <a class="back" href="{{ .Site.Home.RelPermalink }}">← all thoughts</a>
+
+<script>
+  (() => {
+    const root = document.documentElement;
+    const toggleButton = document.getElementById("reader-controls-toggle");
+    const controlsPanel = document.getElementById("reader-controls-panel");
+    const sizeInput = document.getElementById("reading-size");
+    const heightInput = document.getElementById("reading-height");
+    const widthInput = document.getElementById("reading-width");
+    const desktopMediaQuery = window.matchMedia("(min-width: 1100px)");
+
+    const setValue = (key, value, unit) => {
+      root.style.setProperty(key, `${value}${unit}`);
+    };
+
+    const apply = () => {
+      setValue("--reading-size", sizeInput.value, "rem");
+      setValue("--reading-line-height", heightInput.value, "");
+      setValue("--reading-measure", widthInput.value, "ch");
+      localStorage.setItem("readerTypographySize", sizeInput.value);
+      localStorage.setItem("readerTypographyHeight", heightInput.value);
+      localStorage.setItem("readerTypographyWidth", widthInput.value);
+    };
+
+    const savedSize = localStorage.getItem("readerTypographySize");
+    const savedHeight = localStorage.getItem("readerTypographyHeight");
+    const savedWidth = localStorage.getItem("readerTypographyWidth");
+    if (savedSize) sizeInput.value = savedSize;
+    if (savedHeight) heightInput.value = savedHeight;
+    if (savedWidth) widthInput.value = savedWidth;
+
+    apply();
+    sizeInput.addEventListener("input", apply);
+    heightInput.addEventListener("input", apply);
+    widthInput.addEventListener("input", apply);
+
+    const syncControlsVisibility = () => {
+      if (desktopMediaQuery.matches) {
+        toggleButton.hidden = true;
+        controlsPanel.hidden = false;
+        toggleButton.setAttribute("aria-expanded", "true");
+        return;
+      }
+
+      toggleButton.hidden = false;
+      if (!toggleButton.dataset.initialized) {
+        controlsPanel.hidden = true;
+        toggleButton.dataset.initialized = "true";
+      }
+      toggleButton.setAttribute("aria-expanded", controlsPanel.hidden ? "false" : "true");
+    };
+
+    toggleButton.addEventListener("click", () => {
+      controlsPanel.hidden = !controlsPanel.hidden;
+      toggleButton.setAttribute("aria-expanded", controlsPanel.hidden ? "false" : "true");
+    });
+
+    desktopMediaQuery.addEventListener("change", syncControlsVisibility);
+    syncControlsVisibility();
+  })();
+</script>
 {{ end }}
