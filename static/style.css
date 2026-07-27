@@ -103,12 +103,14 @@ h1 a {
 
 .reader-controls {
   border: 1px solid var(--line);
+  border-radius: 0.6rem;
   padding: 0.9rem;
   margin: 0;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.45rem 0.8rem;
   align-items: center;
+  align-content: start;
   position: fixed;
   right: 1rem;
   bottom: 4.5rem;
@@ -153,9 +155,11 @@ h1 a {
   .reader-controls {
     position: fixed;
     top: 5.5rem;
+    bottom: auto;
     right: max(1rem, calc((100vw - 44rem) / 2 - 14.75rem));
     width: 13.5rem;
-    max-height: calc(100vh - 7rem);
+    max-height: none;
+    overflow-y: visible;
     margin: 0;
     z-index: 10;
     background: var(--bg);
